@@ -6,7 +6,7 @@ env:
   EKS_CLUSTER: ${{ secrets.EKS_CLUSTER }}
 
 jobs:
-  Testing:
+  Code_Build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -16,15 +16,34 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: 17
-          distribution: 'zulu' # Alternative distribution options are available.
-      
-      - name: Cache SonarQube packages
+          distribution: "zulu" # Alternative distribution options are available.
+
+      - name: Cache Maven packages
         uses: actions/cache@v4
         with:
-          path: ~/.sonar/cache
-          key: ${{ runner.os }}-sonar
-          restore-keys: ${{ runner.os }}-sonar
-      
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Build with Maven
+        run: mvn -B package --file pom.xml
+
+      - name: Checkstyle
+        run: mvn checkstyle:checkstyle
+
+  Testing:
+    needs: Code_Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: "zulu" # Alternative distribution options are available.
+
       - name: Cache Maven packages
         uses: actions/cache@v4
         with:
@@ -35,8 +54,23 @@ jobs:
       - name: Maven test
         run: mvn test
 
-      - name: Checkstyle
-        run: mvn checkstyle:checkstyle
+  Quality_Gate:
+    needs: Testing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+          
+      - name: Cache SonarQube packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
 
       - name: Set up SonarQube
         uses: warchant/setup-sonar-scanner@v7
@@ -45,6 +79,7 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+
   Build_and_Deploy:
     needs: Testing
     runs-on: ubuntu-latest
