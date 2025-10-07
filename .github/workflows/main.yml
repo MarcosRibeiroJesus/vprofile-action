@@ -24,9 +24,6 @@ jobs:
           distribution: "temurin"
           java-version: "11"
 
-      - name: Cache Maven packages
-        uses: actions/cache@v3
-
       - name: Set up SonarQube
         uses: warchant/setup-sonar-scanner@v7
 
