@@ -81,7 +81,7 @@ jobs:
         run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
 
   Build_and_Deploy:
-    needs: Testing
+    needs: Quality_Gate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
